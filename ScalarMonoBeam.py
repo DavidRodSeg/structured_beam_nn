@@ -1,7 +1,7 @@
 # Import libraries
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import hermite
+from scipy.special import hermite, genlaguerre, j0
 
 # Define the gaussian beam
 DEFAULT_E0 = 1
@@ -93,11 +93,10 @@ class GaussianBeam:
         :return: Beam's phase phi(r,z)
         """
         k = 2*pi / self.wave_length
-        w = self.getWaist(z)
         R = self.getRadius(z)
         gphi = self.getGouyPhase(z)
         mask_phase = np.arctan( np.imag(self.M) / np.real(self.M))
-        phi = -k*z - pi*r**2 / ( self.wave_length*R ) + gphi + mask_phase
+        phi = -k*z - pi*r**2 / ( self.wave_length*R ) - gphi + mask_phase
 
         return phi
 
@@ -220,20 +219,21 @@ class GaussianBeam:
         plt.show()
 
 
+
 DEFAULT_M = 0
 DEFAULT_P = 0
 
 class HGBeam(GaussianBeam):
     """
     Define a coherent monocromatic beam with a hermite-gaussian cross-sectional profile
-         and a linear polarization.
-        :param W0: beam waist radius at the origin z=0 (mm)
-        :param f: frequency of the monocromatic beam (THz)
-        :param E0: intensity at the origin (N/C)
-        :param phi0: initial phase
-        :param alpha: the angle the polarization forms with the X-axis
-        :param m: order of the HG beam (m = 0 by defect)
-        :param p: order of the HG beam (p = 0 by defect)
+     and a linear polarization.
+    :param W0: beam waist radius at the origin z=0 (mm)
+    :param f: frequency of the monocromatic beam (THz)
+    :param E0: intensity at the origin (N/C)
+    :param phi0: initial phase
+    :param alpha: the angle the polarization forms with the X-axis
+    :param m: order of the HG beam (m = 0 by defect)
+    :param p: order of the HG beam (p = 0 by defect)
     """
     def __init__(self, w0, f, E0=DEFAULT_E0, phi0=DEFAULT_PHI0, alpha=DEFAULT_ALPHA, m=DEFAULT_M, p=DEFAULT_P):
         super().__init__(w0, f, E0, phi0, alpha)
@@ -261,3 +261,291 @@ class HGBeam(GaussianBeam):
         A = hm( np.sqrt(2)*x / w ) * hp( np.sqrt(2)*y / w ) * super().getFieldAmplitude(z, r)
 
         return A
+    
+    def getFieldPhase(self, x, y, z):
+        """
+        Calculates the phase of the beam's field.
+        :param x: coordinate x in cartesian coordinates
+        :param y: coordinate y in cartesian coordinates
+        :param z: coordinate z in cartesian coordinates
+        :return: Beam's phase phi(x, y, z)
+        """
+        k = 2*pi / self.wave_length
+        R = self.getRadius(z)
+        gphi = self.getGouyPhase(z)
+        mask_phase = np.arctan( np.imag(self.M) / np.real(self.M))
+        phi = -k*z - k*( x**2+y**2 ) / ( 2*R ) - gphi + mask_phase
+
+        return phi
+    
+    def getFieldVector(self, x, y, z):
+        """
+        Gives the field vector (in the cross-section plane) at the position
+         (x, y, z) in cartesian coordinates. 
+        :param x: coordinate x in cartesian coordinates
+        :param y: coordinate y in cartesian coordinates
+        :param z: coordinate z in cartesian coordinates
+        :return: Beam's field vector E(z, y, z)
+        """
+        A = self.getFieldAmplitude(x, y, z)
+        phi = self.getFieldPhase(x, y, z)
+        A_complex = A * np.exp( 1j*phi )
+        E = np.array([A_complex*np.cos( self.alpha ), A_complex*np.sin( self.alpha )])
+
+        return E
+    
+    def getIntensity(self, x, y, z):
+        """
+        Calculate the intensity of the beam at the position (r, z).
+        :param x: coordinate x in cartesian coordinates
+        :param y: coordinate y in cartesian coordinates
+        :param z: coordinate z in cartesian coordinates
+        :return: Beam's intensity I(x, y, z)
+        """
+        A = self.getFieldAmplitude(x, y, z)
+        I = 1/( 2*μ0*c ) * abs(A)**2
+
+        return I
+    
+    def Propagate(self, z1, z2, dz, r2=10, dr=0.1):
+        """
+        Propagate the beam in free space. Calculates the fundamental parameters
+         of the beam for a certain distance and store it in a vector.
+        :param z1: coordinate z for the starting point of the propagation
+        :param z2: coordinate z for the final point of the propagation
+        :param dz: step distance of the propagation
+        :param r2: final point for the coordinate r
+        :param dr: step distance for the coordinate r
+        :return: matrices of the intensity and the field vector of the beam
+         MatE, MatI with dimensions (z_steps, 2*r_steps, 2*r_steps, 2) and
+         (z_steps, 2*r_steps, 2*r_steps) respectively
+        """
+        # Number of steps for the for loops
+        z_steps = int(( z2-z1 ) / dz)
+        r_steps = int(( r2-0 ) / dr)
+
+        # Initialization of the matrices
+        MatE = np.empty((z_steps, 2*r_steps, 2*r_steps, 2), dtype=np.complex128)
+        MatI = np.empty((z_steps, 2*r_steps, 2*r_steps), dtype=np.float32)
+
+        # Intensity and field vector matrices for the specified range
+        for i in range(z_steps):
+            for j in range(2*r_steps):
+                for k in range(2*r_steps):
+                    z = i * dz
+                    x = j * dr - r2
+                    y = k * dr - r2
+
+                    Eijk = self.getFieldVector(x, y, z)
+                    Iijk = self.getIntensity(x, y, z)
+
+                    MatE[i, j, k] = Eijk
+                    MatI[i, j, k] = Iijk
+                
+        return MatE, MatI
+    
+
+
+DEFAULT_L = 0
+DEFAULT_P = 0
+
+class LGBeam(GaussianBeam):
+    """
+    Define a coherent monocromatic beam with a laguerre-gaussian cross-sectional profile
+     and a linear polarization.
+    :param W0: beam waist radius at the origin z=0 (mm)
+    :param f: frequency of the monocromatic beam (THz)
+    :param E0: intensity at the origin (N/C)
+    :param phi0: initial phase
+    :param alpha: the angle the polarization forms with the X-axis
+    :param p: order of the LG beam (p = 0 by defect)
+    :param l: order of the LG beam (l = 0 by defect). It is also the OAM (orbital angular
+     momentum) of the vortex beam
+    """
+    def __init__(self, w0, f, E0=DEFAULT_E0, phi0=DEFAULT_PHI0, alpha=DEFAULT_ALPHA, p=DEFAULT_P, l=DEFAULT_L):
+        super().__init__(w0, f, E0, phi0, alpha)
+        self.l = l
+        self.p = p 
+    
+    def getGouyPhase(self, z):
+        gphi = super().getGouyPhase(z) * ( 1 + self.l + 2*self.p)
+
+        return gphi
+    
+    def getFieldAmplitude(self, z, r):
+        w = self.getWaist(z)
+        Lp = genlaguerre(self.p, self.l)
+        A = super().getFieldAmplitude(z, r) * ( np.sqrt(2)* r/w )**self.l * Lp( 2*r**2/w**2 )
+
+        return A
+    
+    def getFieldPhase(self, z, r, theta):
+        """
+        Calculates the phase of the beam's field.
+        :param z: coordinate z in cylindrical coordinates
+        :param r: coordinate r in cylindrical coordinates
+        :param theta: coordinate theta in cylindrical coordinates
+        :return: Beam's phase phi(r,z)
+        """
+        phi = super().getFieldPhase(z, r) + self.l*theta
+
+        return phi
+    
+    def getFieldVector(self, z, r, theta):
+        """
+        Gives the field vector (in the cross-section plane) at the position
+         (r, z) in cylindrical coordinates. 
+        :param z: coordinate z in cylindrical coordinates
+        :param r: coordinate r in cylindrical coordinates
+        :param theta: coordinate theta in cylindrical coordinates
+        :return: Beam's field vector E(r,z)
+        """
+        A = self.getFieldAmplitude(z, r)
+        phi = self.getFieldPhase(z, r, theta)
+        A_complex = A * np.exp( 1j*phi )
+        E = np.array([A_complex*np.cos( self.alpha ), A_complex*np.sin( self.alpha )])
+
+        return E
+    
+    def Propagate(self, z1, z2, dz, r2=10, dr=0.1):
+        """
+        Propagate the beam in free space. Calculates the fundamental parameters
+         of the beam for a certain distance and store it in a vector.
+        :param z1: coordinate z for the starting point of the propagation
+        :param z2: coordinate z for the final point of the propagation
+        :param dz: step distance of the propagation
+        :param r2: final point for the coordinate r
+        :param dr: step distance for the coordinate r
+        :return: matrices of the intensity and the field vector of the beam
+         MatE, MatI with dimensions (z_steps, 2*r_steps, 2*r_steps, 2) and
+         (z_steps, 2*r_steps, 2*r_steps) respectively
+        """
+        # Number of steps for the for loops
+        z_steps = int(( z2-z1 ) / dz)
+        r_steps = int(( r2-0 ) / dr)
+
+        # Initialization of the matrices
+        MatE = np.empty((z_steps, 2*r_steps, 2*r_steps, 2), dtype=np.complex128)
+        MatI = np.empty((z_steps, 2*r_steps, 2*r_steps), dtype=np.float32)
+
+        # Intensity and field vector matrices for the specified range
+        for i in range(z_steps):
+            for j in range(2*r_steps):
+                for k in range(2*r_steps):
+                    z = i * dz
+                    x = j * dr - r2
+                    y = k * dr - r2
+                    r = np.sqrt(x**2 + y**2)
+                    if r == 0:
+                        theta = 0 # Impose 0 to avoid problems in the IND 0/0 at the origin (r=0). This sentence has no relevance as the amplitude is 0 at r=0.
+                    else:
+                        theta = np.arcsin( y/r )
+
+                    Eijk = self.getFieldVector(z, r, theta)
+                    Iijk = self.getIntensity(z, r)
+
+                    MatE[i, j, k] = Eijk
+                    MatI[i, j, k] = Iijk
+                
+        return MatE, MatI
+    
+
+
+DEFAULT_beta = 0
+
+class BGBeam(GaussianBeam):
+    """
+    Define a coherent monocromatic beam with a bessel-gaussian cross-sectional profile
+     and a linear polarization.
+    :param W0: beam waist radius at the origin z=0 (mm)
+    :param f: frequency of the monocromatic beam (THz)
+    :param E0: intensity at the origin (N/C)
+    :param phi0: initial phase
+    :param alpha: the angle the polarization forms with the X-axis
+    :param beta: constant scale parameter
+    """
+    def __init__(self, w0, f, E0=DEFAULT_E0, phi0=DEFAULT_PHI0, alpha=DEFAULT_ALPHA, beta=DEFAULT_beta):
+        super().__init__(w0, f, E0, phi0, alpha)
+        self.beta = beta
+    
+    def getGouyPhase(self, z):
+        gphi = super().getGouyPhase(z) * ( 1 + self.l + 2*self.p)
+
+        return gphi
+    
+    def getFieldAmplitude(self, z, r):
+        w = self.getWaist(z)
+        Lp = genlaguerre(self.p, self.l)
+        A = super().getFieldAmplitude(z, r) * ( np.sqrt(2)* r/w )**self.l * Lp( 2*r**2/w**2 )
+
+        return A
+    
+    def getFieldPhase(self, z, r, theta):
+        """
+        Calculates the phase of the beam's field.
+        :param z: coordinate z in cylindrical coordinates
+        :param r: coordinate r in cylindrical coordinates
+        :param theta: coordinate theta in cylindrical coordinates
+        :return: Beam's phase phi(r,z)
+        """
+        phi = super().getFieldPhase(z, r) + self.l*theta
+
+        return phi
+    
+    def getFieldVector(self, z, r, theta):
+        """
+        Gives the field vector (in the cross-section plane) at the position
+         (r, z) in cylindrical coordinates. 
+        :param z: coordinate z in cylindrical coordinates
+        :param r: coordinate r in cylindrical coordinates
+        :param theta: coordinate theta in cylindrical coordinates
+        :return: Beam's field vector E(r,z)
+        """
+        A = self.getFieldAmplitude(z, r)
+        phi = self.getFieldPhase(z, r, theta)
+        A_complex = A * np.exp( 1j*phi )
+        E = np.array([A_complex*np.cos( self.alpha ), A_complex*np.sin( self.alpha )])
+
+        return E
+    
+    def Propagate(self, z1, z2, dz, r2=10, dr=0.1):
+        """
+        Propagate the beam in free space. Calculates the fundamental parameters
+         of the beam for a certain distance and store it in a vector.
+        :param z1: coordinate z for the starting point of the propagation
+        :param z2: coordinate z for the final point of the propagation
+        :param dz: step distance of the propagation
+        :param r2: final point for the coordinate r
+        :param dr: step distance for the coordinate r
+        :return: matrices of the intensity and the field vector of the beam
+         MatE, MatI with dimensions (z_steps, 2*r_steps, 2*r_steps, 2) and
+         (z_steps, 2*r_steps, 2*r_steps) respectively
+        """
+        # Number of steps for the for loops
+        z_steps = int(( z2-z1 ) / dz)
+        r_steps = int(( r2-0 ) / dr)
+
+        # Initialization of the matrices
+        MatE = np.empty((z_steps, 2*r_steps, 2*r_steps, 2), dtype=np.complex128)
+        MatI = np.empty((z_steps, 2*r_steps, 2*r_steps), dtype=np.float32)
+
+        # Intensity and field vector matrices for the specified range
+        for i in range(z_steps):
+            for j in range(2*r_steps):
+                for k in range(2*r_steps):
+                    z = i * dz
+                    x = j * dr - r2
+                    y = k * dr - r2
+                    r = np.sqrt(x**2 + y**2)
+                    if r == 0:
+                        theta = 0 # Impose 0 to avoid problems in the IND 0/0 at the origin (r=0). This sentence has no relevance as the amplitude is 0 at r=0.
+                    else:
+                        theta = np.arcsin( y/r )
+
+                    Eijk = self.getFieldVector(z, r, theta)
+                    Iijk = self.getIntensity(z, r)
+
+                    MatE[i, j, k] = Eijk
+                    MatI[i, j, k] = Iijk
+                
+        return MatE, MatI

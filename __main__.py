@@ -2,13 +2,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
-from ScalarMonoBeam import GaussianBeam
+from ScalarMonoBeam import GaussianBeam, HGBeam, LGBeam
+import time
+
+
 
 # --------------- REPRESENTATION OF THE INTENSITY PROFILE ---------------
-beam = GaussianBeam(1, 1000, 10)
+beam = LGBeam(1, 1000, 10, p=0, l=2)
+print("Creating field and intensity matrices... ")
+t0 = time.time()
 MatE, MatI = beam.Propagate(0, 0.1, 0.001, r2=50, dr = 1)
+print(f"Done. Time needed: {time.time()-t0} seconds")
 
 # Create the figure and axes
+print("Starting the plotting...")
+t1 = time.time()
 figure, axes = plt.subplots()
 data = MatI[0, :, :]
 img = axes.imshow(data, cmap="gray")
@@ -30,6 +38,8 @@ slider.on_changed(update)
 # Add labels to axes
 axes.set_xlabel('X-axis label')
 axes.set_ylabel('Y-axis label')
+print(f"Done. Time needed: {time.time()-t1} seconds")
+print("prueba")
 
 # Display the plot
 plt.colorbar(img)
