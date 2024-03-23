@@ -1,7 +1,13 @@
+"""
+Classes and subclasses for the calculation of the amplitude and phase of different structured light beam. The parameters are stored in
+ arrays of a specified size. For more information check out the description of each of the classes and its attributes.
+"""
+
 # Import libraries
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import hermite, genlaguerre, j0
+from scipy.special import hermite, genlaguerre, jv
+from multiprocessing import Pool
 
 # Define the gaussian beam
 DEFAULT_E0 = 1
@@ -29,13 +35,11 @@ class GaussianBeam:
         self.alpha = alpha
 
         self.wave_length = c / self.f
-        self.I0 = 1/( 2*μ0*c ) * abs(self.E0)**2 # PENSANDO EN QUITARLO
+        self.I0_norm = 1/( 2*μ0*c )
         self.FWHM = self.w0 * np.sqrt( 2*np.log(2) )
         self.M = 1 + 0j
-
-        # self.z = 0
-        # self.z0 = 0
-        # self.r = 0
+        self.z0 = pi*self.w0**2 / self.wave_length
+        self.k = 2*pi/self.wave_length
 
     def getWaist(self, z):
         """
@@ -68,7 +72,7 @@ class GaussianBeam:
         :param z: coordinate z in cylindrical coordinates
         :return: Beam's Gouy's phase gphi(z) in radians
         """
-        gphi = np.arctan( self.wave_length*z / ( pi*self.w0**2 ))
+        gphi = np.arctan( z / self.z0)
 
         return gphi
     
@@ -80,23 +84,20 @@ class GaussianBeam:
         :return: Beam's amplitude A(r,z)
         """
         w = self.getWaist(z)
-        Amp_mask = abs(self.M)
-        A = self.E0 * ( self.w0 / w ) * np.exp( -r**2 / w**2 ) * Amp_mask
+        A = self.E0 * ( self.w0 / w ) * np.exp( -r**2 / w**2 )
 
         return A
 
-    def getFieldPhase(self, z, r): # Puede que dé problemas
+    def getFieldPhase(self, z, r):
         """
         Calculates the phase of the beam's field.
         :param z: coordinate z in cylindrical coordinates
         :param r: coordinate r in cylindrical coordinates
         :return: Beam's phase phi(r,z)
         """
-        k = 2*pi / self.wave_length
         R = self.getRadius(z)
         gphi = self.getGouyPhase(z)
-        mask_phase = np.arctan( np.imag(self.M) / np.real(self.M))
-        phi = -k*z - pi*r**2 / ( self.wave_length*R ) - gphi + mask_phase
+        phi = -self.k*z - pi*r**2 / ( self.wave_length*R ) - gphi
 
         return phi
 
@@ -106,12 +107,16 @@ class GaussianBeam:
          (r, z) in cylindrical coordinates. 
         :param z: coordinate z in cylindrical coordinates
         :param r: coordinate r in cylindrical coordinates
-        :return: Beam's field vector E(r,z)
+        :return: Beam's field vector E(r,z). The polarization is represented in cartesian coordinates, as the function
+         returns a vector of two components: one for the X axis and another one for the Y axis.
         """
         A = self.getFieldAmplitude(z, r)
         phi = self.getFieldPhase(z, r)
         A_complex = A * np.exp( 1j*phi )
-        E = np.array([A_complex*np.cos( self.alpha ), A_complex*np.sin( self.alpha )])
+        if self.alpha==0:
+            E = np.array([A_complex, 0])
+        else:
+            E = np.array([A_complex*np.cos( self.alpha ), A_complex*np.sin( self.alpha )])
 
         return E
 
@@ -123,11 +128,11 @@ class GaussianBeam:
         :return: Beam's intensity I(r,z)
         """
         A = self.getFieldAmplitude(z, r)
-        I = 1/( 2*μ0*c ) * abs(A)**2
+        I = self.I0_norm * abs(A)**2
 
         return I
 
-    def Propagate(self, z1, z2, dz, r2=10, dr=0.1): # Raidus r in centimeters
+    def Propagate(self, z1, z2, dz, r2=10, dr=0.1, select=False): # Raidus r in centimeters
         """
         Propagate the beam in free space. Calculates the fundamental parameters
          of the beam for a certain distance and store it in a vector.
@@ -136,33 +141,46 @@ class GaussianBeam:
         :param dz: step distance of the propagation
         :param r2: final point for the coordinate r
         :param dr: step distance for the coordinate r
+        :param select: if False calculates the intensity array. If True calculates the field array
         :return: matrices of the intensity and the field vector of the beam
          MatE, MatI with dimensions (z_steps, 2*r_steps, 2*r_steps, 2) and
          (z_steps, 2*r_steps, 2*r_steps) respectively
         """
         # Number of steps for the for loops
         z_steps = int(( z2-z1 ) / dz)
-        r_steps = int(( r2-0 ) / dr)
+        r_steps = int( r2 / dr)
+        c_steps = 2*r_steps #Cartesian steps: twice the steps of the radius
 
         # Initialization of the matrices
-        MatE = np.empty((z_steps, 2*r_steps, 2*r_steps, 2), dtype=np.complex128)
-        MatI = np.empty((z_steps, 2*r_steps, 2*r_steps), dtype=np.float32)
+        MatE = np.empty((z_steps, c_steps, c_steps, 2), dtype=np.complex64)
+        MatI = np.empty((z_steps, c_steps, c_steps), dtype=np.float32)
 
         # Intensity and field vector matrices for the specified range
-        for i in range(z_steps):
-            for j in range(2*r_steps):
-                for k in range(2*r_steps):
-                    z = i * dz
-                    x = j * dr - r2
-                    y = k * dr - r2
-                    r = np.sqrt(x**2 + y**2)
+        if select == False:
+            for i in range(z_steps):
+                for j in range(c_steps):
+                    for k in range(c_steps):
+                        z = i * dz
+                        x = j * dr - r2
+                        y = k * dr - r2
+                        r = np.sqrt(x**2 + y**2)
+                        Iijk = self.getIntensity(z, r)
+                        MatI[i, j, k] = Iijk
 
-                    Eijk = self.getFieldVector(z,r)
-                    Iijk = self.getIntensity(z, r)
+        elif select == True:
+            for i in range(z_steps):
+                for j in range(c_steps):
+                    for k in range(c_steps):
+                        z = i * dz
+                        x = j * dr - r2
+                        y = k * dr - r2
+                        r = np.sqrt(x**2 + y**2)
+                        Eijk = self.getFieldVector(z,r)
+                        MatE[i, j, k] = Eijk
 
-                    MatE[i, j, k] = Eijk
-                    MatI[i, j, k] = Iijk
-                
+        else:
+            print("Error: Not a valid selection")
+  
         return MatE, MatI
     
     def Rotate(self, alpha):
@@ -184,39 +202,6 @@ class GaussianBeam:
         M = self.M if M==None else M
 
         return M
-
-    def plotIntensity(self, MatI):
-        """
-        Plot beam intensity profile.
-        :param MatI: intensity profile matrix.
-        :return: GaussianBeam object for chaining
-        """
-        self._plot("Intensity profile")
-    
-    def plotPhase(self):
-        """
-        Plot beam phase profile.
-        """
-
-    def plotAmplitude(self):
-        """
-        Plot beam amplitude profile
-        """
-
-    def plotField(self):
-        """
-        Plot beam vector field profile
-        """
-
-
-    @staticmethod
-
-    def _plot(self, title, xlabel, ylabel, xvalue, yvalue):
-        plt.plot(xvalue, yvalue)
-        plt.title(title)
-        plt.xlabel(xlabel=xlabel)
-        plt.ylabel(ylabel=ylabel)
-        plt.show()
 
 
 
@@ -385,7 +370,7 @@ class LGBeam(GaussianBeam):
         :param z: coordinate z in cylindrical coordinates
         :param r: coordinate r in cylindrical coordinates
         :param theta: coordinate theta in cylindrical coordinates
-        :return: Beam's phase phi(r,z)
+        :return: Beam's phase phi(r,z, theta)
         """
         phi = super().getFieldPhase(z, r) + self.l*theta
 
@@ -452,6 +437,7 @@ class LGBeam(GaussianBeam):
 
 
 DEFAULT_beta = 0
+DEFAULT_ORDER = 0
 
 class BGBeam(GaussianBeam):
     """
@@ -463,89 +449,27 @@ class BGBeam(GaussianBeam):
     :param phi0: initial phase
     :param alpha: the angle the polarization forms with the X-axis
     :param beta: constant scale parameter
+    :param order: order of the bessel function multiplying the field equation
     """
-    def __init__(self, w0, f, E0=DEFAULT_E0, phi0=DEFAULT_PHI0, alpha=DEFAULT_ALPHA, beta=DEFAULT_beta):
+    def __init__(self, w0, f, E0=DEFAULT_E0, phi0=DEFAULT_PHI0, alpha=DEFAULT_ALPHA, beta=DEFAULT_beta, order=DEFAULT_ORDER):
         super().__init__(w0, f, E0, phi0, alpha)
         self.beta = beta
-    
-    def getGouyPhase(self, z):
-        gphi = super().getGouyPhase(z) * ( 1 + self.l + 2*self.p)
-
-        return gphi
+        self.order = order
     
     def getFieldAmplitude(self, z, r):
         w = self.getWaist(z)
-        Lp = genlaguerre(self.p, self.l)
-        A = super().getFieldAmplitude(z, r) * ( np.sqrt(2)* r/w )**self.l * Lp( 2*r**2/w**2 )
+        A = super().getFieldAmplitude(z, r) * abs( jv(self.order, self.beta*r/( 1+1j*z/self.z0 )) ) * np.exp( -self.beta**2*(z/2*self.k) / ( 1+z/self.z0 ))
 
         return A
     
-    def getFieldPhase(self, z, r, theta):
+    def getFieldPhase(self, z, r):
         """
         Calculates the phase of the beam's field.
         :param z: coordinate z in cylindrical coordinates
         :param r: coordinate r in cylindrical coordinates
-        :param theta: coordinate theta in cylindrical coordinates
         :return: Beam's phase phi(r,z)
         """
-        phi = super().getFieldPhase(z, r) + self.l*theta
+        bessel_phase = np.arctan( np.real( jv(self.order, self.beta*r / ( 1+1j*z/self.z0 ) )) / np.imag( jv(self.order, self.beta*r / ( 1+1j*z/self.z0 ) )))
+        phi = super().getFieldPhase(z, r) + bessel_phase + self.beta*( z**2/( 2*self.k*self.z0 ))/( 1+z/self.z0 )
 
         return phi
-    
-    def getFieldVector(self, z, r, theta):
-        """
-        Gives the field vector (in the cross-section plane) at the position
-         (r, z) in cylindrical coordinates. 
-        :param z: coordinate z in cylindrical coordinates
-        :param r: coordinate r in cylindrical coordinates
-        :param theta: coordinate theta in cylindrical coordinates
-        :return: Beam's field vector E(r,z)
-        """
-        A = self.getFieldAmplitude(z, r)
-        phi = self.getFieldPhase(z, r, theta)
-        A_complex = A * np.exp( 1j*phi )
-        E = np.array([A_complex*np.cos( self.alpha ), A_complex*np.sin( self.alpha )])
-
-        return E
-    
-    def Propagate(self, z1, z2, dz, r2=10, dr=0.1):
-        """
-        Propagate the beam in free space. Calculates the fundamental parameters
-         of the beam for a certain distance and store it in a vector.
-        :param z1: coordinate z for the starting point of the propagation
-        :param z2: coordinate z for the final point of the propagation
-        :param dz: step distance of the propagation
-        :param r2: final point for the coordinate r
-        :param dr: step distance for the coordinate r
-        :return: matrices of the intensity and the field vector of the beam
-         MatE, MatI with dimensions (z_steps, 2*r_steps, 2*r_steps, 2) and
-         (z_steps, 2*r_steps, 2*r_steps) respectively
-        """
-        # Number of steps for the for loops
-        z_steps = int(( z2-z1 ) / dz)
-        r_steps = int(( r2-0 ) / dr)
-
-        # Initialization of the matrices
-        MatE = np.empty((z_steps, 2*r_steps, 2*r_steps, 2), dtype=np.complex128)
-        MatI = np.empty((z_steps, 2*r_steps, 2*r_steps), dtype=np.float32)
-
-        # Intensity and field vector matrices for the specified range
-        for i in range(z_steps):
-            for j in range(2*r_steps):
-                for k in range(2*r_steps):
-                    z = i * dz
-                    x = j * dr - r2
-                    y = k * dr - r2
-                    r = np.sqrt(x**2 + y**2)
-                    if r == 0:
-                        theta = 0 # Impose 0 to avoid problems in the IND 0/0 at the origin (r=0). This sentence has no relevance as the amplitude is 0 at r=0.
-                    else:
-                        theta = np.arcsin( y/r )
-
-                    Eijk = self.getFieldVector(z, r, theta)
-                    Iijk = self.getIntensity(z, r)
-
-                    MatE[i, j, k] = Eijk
-                    MatI[i, j, k] = Iijk
-                
-        return MatE, MatI
