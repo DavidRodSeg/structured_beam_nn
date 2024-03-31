@@ -21,6 +21,15 @@ class Mask:
         self.ydim = ydim
         self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64) # By defect the mask is a wall. Transmission is not allowed.
 
+    def Identity(self):
+        """
+        Applies an identity mask.
+        :return: array of the identity mask
+        """
+        self.mask = np.ones((self.xdim, self.ydim), dtype=np.complex64)
+
+        return self
+    
     def setRandomMask(self):
         """
         Give random values to the mask.
@@ -34,16 +43,36 @@ class Mask:
         
         return self
     
-    def setPeriodicMask(self):
+    def setSlit(self, N, size=1):
         """
+        Applies a mask that is equivalent of a N-slit (pure-amplitude mask with N apertures)
+         with slits separate by the same length.
+        :param N: number of apertures in the mask. The maximum number of slits depends on the
+         size of the beam's matrix and the lenght of the slits
+        :param size: size of the slits (in pixel size)
+        :return: array of the beam with the mask applied
         """
-
-    def Identity(self):
+        steps = int(( self.xdim - N*size ) / ( N+1 ))
+        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64) # Zero mask = wall (the light doesn't goes through the mask)
+        for j in range(0, self.xdim, steps+size):
+            for i in range(size):
+                self.mask[:,j+i-size] = 1
+        
+        return self
+    
+    def setRectangle(self, a, b):
         """
-        Applies an identity mask.
-        :return: array of the identity mask
+        Applies a rectangle mask (amplitude-only mask).
+        :param a: horizontal side of the rectangle (in pixel size)
+        :param b: vertical side of the rectangle (in pixel size)
+        :return: array of the beam with the mask applied
         """
-        self.mask = np.ones((self.xdim, self.ydim), dtype=np.complex64)
+        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64)
+        x0 = int((self.xdim - a)/2)
+        y0 = int((self.ydim - b)/2)
+        for i in range(x0, a + x0, 1):
+            for j in range(y0, b + y0, 1):
+                self.mask[i,j] = 1
 
         return self
 

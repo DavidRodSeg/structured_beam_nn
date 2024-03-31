@@ -5,16 +5,17 @@ from matplotlib.widgets import Slider
 from scalar_monobeam import GaussianBeam, HGBeam, LGBeam, BGBeam
 import time
 from mask import Mask
+from fraunhofer_diffraction import Fraunhofer
 import warnings
 warnings.filterwarnings("ignore")
 
 
 
 # --------------- REPRESENTATION OF THE INTENSITY PROFILE ---------------
-beam = LGBeam(1, 1000, E0=10, p=0, l=0)
+beam = LGBeam(10, f=600*10e6, E0=10, p=0, l=0)
 print("Creating field/intensity matrices... ")
 t0 = time.time()
-MatE = beam.Propagate(r2=50, dr = 1, select=True)
+MatE = beam.Propagate(z2=10.05, dz=10,r2=50, dr = 1, select=True)
 print(f"Done. Time needed: {time.time()-t0} seconds")
 
 # # Create the figure and axes
@@ -47,13 +48,32 @@ print(f"Done. Time needed: {time.time()-t0} seconds")
 
 
 
-#---------------------------Apply the mask------------------------------
+#--------------------------Apply the mask-----------------------------
+t0 = time.time()
+print("Applying the mask...")
 MatE = np.squeeze(MatE)
-mask = Mask(MatE.shape[0], MatE.shape[1]).Identity()
+mask = Mask(MatE.shape[0], MatE.shape[1]).setRectangle(a=10, b=20)
 product = mask.Apply(MatE)
 MatI = beam.Module(product)
+print(f"Done. Time needed: {time.time()-t0} seconds")
 
 plt.imshow(MatI, cmap="grey").set_clim(vmin=0, vmax=1e-5)
+plt.xlabel('X-axis label')
+plt.ylabel('Y-axis label')
+plt.colorbar()
+plt.show()
+
+
+
+#----------------------Fraunhofer diffraction-------------------------
+t0 = time.time()
+print("Propagating the beam...")
+diff = Fraunhofer(samples=product, f=600*10e6, z = 7)
+diff_arr = diff.diffraction()
+MatI = beam.Module(diff_arr)
+print(f"Done. Time needed: {time.time()-t0} seconds")
+
+plt.imshow(MatI, cmap="grey").set_clim(vmin=0, vmax=1e-3)
 plt.xlabel('X-axis label')
 plt.ylabel('Y-axis label')
 plt.colorbar()
