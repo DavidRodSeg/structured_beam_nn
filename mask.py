@@ -54,7 +54,7 @@ class Mask:
         """
         steps = int(( self.xdim - N*size ) / ( N+1 ))
         self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64) # Zero mask = wall (the light doesn't goes through the mask)
-        for j in range(0, self.xdim, steps+size):
+        for j in range(steps+size, self.xdim, steps+size): # REVISAR EL CÓMO CENTRAR LA RENDIJA
             for i in range(size):
                 self.mask[:,j+i-size] = 1
         
@@ -74,6 +74,20 @@ class Mask:
             for j in range(y0, b + y0, 1):
                 self.mask[i,j] = 1
 
+        return self
+    
+    def setCircular(self, r):
+        """
+        Applies a circular mask (amplitude-only mask).
+        :param r: radius of the aperture (in pixel size)
+        :return: array of the beam with the mask applied
+        """
+        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64)
+        for i in range(self.xdim):
+            for j in range(self.ydim):
+                if int(np.sqrt(( i-self.xdim/2 )**2 + ( j-self.ydim/2 )**2)) <= r: # The origin is established in the coordinate (xdim/2, ydim/2) which means is centered
+                    self.mask[i,j] = 1
+        
         return self
 
     def Apply(self, beam):
