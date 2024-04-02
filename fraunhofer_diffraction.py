@@ -1,5 +1,6 @@
 import numpy as np
 from tqdm import tqdm
+from multiprocessing import Pool
 
 c = 3*10**8
 
@@ -111,6 +112,7 @@ class Fraunhofer:
             y[:,j] = self.FFT_1D(x[:,j])
         for i in range(self.amp*x.shape[0]):
             fft[i,:] = self.FFT_1D(y[i,:])
+        
         return fft
        
     def diffraction(self):
@@ -130,4 +132,3 @@ class Fraunhofer:
         dif_arr = A*self.FFT_2D(self.samples)*self.dx2*self.dy2
 
         return dif_arr
-            

@@ -8,7 +8,6 @@ Methods for creating and applying a mask to a an array representing a structured
 import numpy as np
 
 
-
 # Define the mask class
 class Mask:
     def __init__(self, xdim, ydim):
@@ -99,3 +98,10 @@ class Mask:
         product = np.multiply(self.mask, beam)
 
         return product
+    
+    def get(self):
+        """
+        Allow accesing to the mask's array.
+        :return: mask's array
+        """
+        return self.mask
