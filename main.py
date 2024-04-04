@@ -13,15 +13,15 @@ warnings.filterwarnings("ignore")
 
 
 
-times = 1000 # Number of iterations for the creation of the dataset
+times = 1 # Number of iterations for the creation of the dataset
 mask_size = 128**2
 diff_size = 4*mask_size
 
-dataset = np.empty((times, diff_size+mask_size ), dtype=np.complex64)
+dataset = np.empty((times, diff_size+mask_size ), dtype=np.float32)
 
 for t in tqdm(range(times)):
     #-----------------------CREATION OF THE BEAM--------------------------
-    beam = LGBeam(10, f=600*10e6, E0=10, p=0, l=0)
+    beam = LGBeam(10, f=600*10e6, E0=10, p=1, l=1)
     # print("Creating field/intensity matrices... ")
     t0 = time.time()
     MatE = beam.Propagate(z2=10.05, dz=10,r2=64, dr = 1, select=True)
@@ -60,17 +60,18 @@ for t in tqdm(range(times)):
     #--------------------------APPLY THE MASK-----------------------------
     # print("Applying the mask...")
     MatE = np.squeeze(MatE)
-    mask = Mask(MatE.shape[0], MatE.shape[1]).setRandomMask()
+    mask = Mask(MatE.shape[0], MatE.shape[1]).Identity()
     mask_arr = mask.get() # Necessary for the creation of the dataset
+    mask_arr_int = beam.Module(mask_arr)
     product = mask.Apply(MatE)
     MatI = beam.Module(product)
     # print(f"Done. Time needed: {time.time()-t0} seconds")
 
-    # plt.imshow(MatI, cmap="grey").set_clim(vmin=0, vmax=1e-5)
-    # plt.xlabel('X-axis label')
-    # plt.ylabel('Y-axis label')
-    # plt.colorbar()
-    # plt.show()
+    plt.imshow(MatI, cmap="grey").set_clim(vmin=0, vmax=1e-5)
+    plt.xlabel('X-axis label')
+    plt.ylabel('Y-axis label')
+    plt.colorbar()
+    plt.show()
 
 
 
@@ -81,17 +82,18 @@ for t in tqdm(range(times)):
     MatI = beam.Module(diff_arr)
     # print(f"Done. Time needed: {time.time()-t0} seconds")
 
-    # plt.imshow(MatI, cmap="grey").set_clim(vmin=0, vmax=1e-4)
-    # plt.xlabel('X-axis label')
-    # plt.ylabel('Y-axis label')
-    # plt.colorbar()
-    # plt.show()
+    plt.imshow(MatI, cmap="grey").set_clim(vmin=0, vmax=1e-4)
+    plt.xlabel('X-axis label')
+    plt.ylabel('Y-axis label')
+    plt.colorbar()
+    plt.show()
 
 
     #-----------------------CREATING THE DATASET--------------------------
-    dataset[t, :] = np.concatenate((diff_arr.flatten("C"), mask_arr.flatten("C")))
+    # dataset[t, :] = np.concatenate((MatI.flatten("C"), mask_arr_int.flatten("C")))
 
 
 #-----------------------SAVING THE DATASET------------------------
-df = pd.DataFrame(dataset)
-df.to_csv(f"{times}_diffraction.csv", sep=",", header=False)
+# df = pd.DataFrame(dataset)
+# df.to_csv(f"{times}_diffraction_intensity.csv", sep=";", header=False, index=False)
+# df.to_csv(f"modeltesing_intensity.csv", sep=";", header=False, index=False)
