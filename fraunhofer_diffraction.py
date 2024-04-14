@@ -19,12 +19,12 @@ class Fraunhofer:
         self.N = int(self.xdim/2)
         self.wavelength = c / self.f
 
-        self.dx = 0.01
-        self.dy = 0.01
-        self.dx2 = 0.01
-        self.dy2 = 0.01
+        self.dx = 0.001
+        self.dy = 0.001
+        self.dx2 = 0.001
+        self.dy2 = 0.001
         self.A = ( self.xdim*self.dx*self.dx2 )/ ( self.wavelength*self.z )
-        self.amp = 2
+        self.amp = 1
 
     def DFT_1D(self, x, j=0):
         """
@@ -115,7 +115,7 @@ class Fraunhofer:
         
         return fft
        
-    def diffraction(self):
+    def diffraction(self, fast = True):
         """
         Propagates the initial beam using the Fraunhofer diffraction equation
         :param z: z coordinate in cartesian coordinates. Distance to evaluate
@@ -123,12 +123,15 @@ class Fraunhofer:
         :return: array of xdim x ydim dimensions for the propagted beam
         """
         M = int(self.amp*self.N)
-        dif_arr = np.empty((M, M), dtype=np.complex64)
         k = 2*np.pi/self.wavelength
         A = np.exp( 1j*k*self.z )/( 1j*self.wavelength*self.z )
-        # for i in tqdm(range(0, 2*M, 1)):
-        #     for j in range(0, 2*M, 1):
-        #         dif_arr[i,j] = A*self.DFT_2D(x=self.dx*(i-M), y=self.dy*(j-M))*self.dx2*self.dy2
-        dif_arr = A*self.FFT_2D(self.samples)*self.dx2*self.dy2
+        if fast == False:
+            dif_arr = np.empty((2*M, 2*M), dtype=np.complex64)
+            for i in tqdm(range(0, 2*M, 1)):
+                for j in range(0, 2*M, 1):
+                    dif_arr[i,j] = A*self.DFT_2D(x=self.dx*(i-M), y=self.dy*(j-M))*self.dx2*self.dy2
+        else:
+            dif_arr = np.empty((M, M), dtype=np.complex64)
+            dif_arr = A*self.FFT_2D(self.samples)*self.dx2*self.dy2
 
         return dif_arr

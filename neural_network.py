@@ -4,27 +4,33 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
+import os
 
 
-times = 1000
+times = 10
 mask_dim = 128
-diff_dim = 2*mask_dim
+diff_dim = mask_dim
 mask_size = mask_dim**2
 diff_size = diff_dim**2
-ltrain = int( 0.7*( times ) )
+ltrain = int( 0.7*( times*mask_dim ) )
 
 # Loading the dataset
 print("Loading the dataset...")
-df = pd.read_csv(f"{times}_diffraction_intensity.csv", sep=";", header=None, index_col=False)
+current_dir = os.getcwd()
+relative_dir = f"{times}_diffraction_intensity.csv"
+data_dir = os.path.join(current_dir, relative_dir)
+df = pd.read_csv(data_dir, sep=";", header=None, index_col=False)
 print("Done.")
 
 # X-y split (and converting the dataframe to numpy arrays)
-X_train, y_train, X_test, y_test = df.values[:ltrain,:diff_size], df.values[:ltrain,diff_size:], df.values[ltrain:,:diff_size], df.values[ltrain:,diff_size:]
+X_train, y_train, X_test, y_test = df.values[:ltrain,:diff_dim], df.values[:ltrain,diff_dim:], df.values[ltrain:,:diff_dim], df.values[ltrain:,diff_dim:]
 
 # Image preprocessing
 scaler = MinMaxScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.fit_transform(X_test)
+X_train = scaler.fit_transform(X_train).reshape(-1, diff_dim, diff_dim, 1)
+y_train = y_train.reshape(-1, diff_dim, diff_dim, 1)
+X_test = scaler.transform(X_test).reshape(-1, diff_dim, diff_dim, 1)
+y_test = y_test.reshape(-1, diff_dim, diff_dim, 1)
 
 # Defining the model
 model = tf.keras.Sequential([
@@ -37,7 +43,8 @@ model = tf.keras.Sequential([
     tf.keras.layers.Flatten(),
     tf.keras.layers.Dense(512, activation="relu"),
     tf.keras.layers.Dense(256, activation="relu"),
-    tf.keras.layers.Dense(mask_size)
+    tf.keras.layers.Dense(mask_dim**2),
+    tf.keras.layers.Reshape((mask_dim, mask_dim, 1))
 ])
 model.compile(optimizer="adam", loss="mse", metrics=["accuracy"])
 print(model.summary())
@@ -49,7 +56,7 @@ batch_size = 64
 # Training the model
 history = model.fit(X_train, y_train, batch_size=batch_size, epochs=n_epochs, validation_data=(X_test, y_test))
 
-# Testing the model
+# Evaluating the model
 def plot_losses():
     plt.figure(figsize=(8,4))
     plt.plot(np.log10(history.history['loss']), color='blue')
@@ -73,14 +80,15 @@ def plot_accuracy():
 plot_losses()
 plot_accuracy()
 
-# Evaluating the model
-loss = model.evaluate(X_test, y_test)
-
 # Making a prediction
-X_try = pd.read_csv("modeltesing_intensity.csv", sep=";", header=None).values[:, :diff_size]
+current_dir = os.getcwd()
+relative_dir = "modeltesting_intensity.csv"
+data_dir = os.path.join(current_dir, relative_dir)
+X_try = pd.read_csv(data_dir, sep=";", header=None).values[:, :mask_dim]
+X_try = scaler.transform(X_try).reshape(-1, mask_dim, mask_dim, 1)
+
 y_pred = model.predict(X_try)
-size = int(np.sqrt(mask_size))
-y_pred = y_pred.reshape(size, size)
+y_pred = y_pred.reshape(mask_dim, mask_dim)
 
 # Checking out the results
 plt.imshow(y_pred, cmap="grey").set_clim(vmin=0, vmax=1e-5)

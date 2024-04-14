@@ -23,7 +23,7 @@ class GaussianBeam:
         """"
         Define a coherent monocromatic beam with a gaussian cross-sectional profile
          and a linear polarization.
-        :param W0: beam waist radius at the origin z=0 (mm)
+        :param W0: beam waist radius at the origin z=0 (m)
         :param f: frequency of the monocromatic beam (Hz)
         :param E0: intensity at the origin (N/C)
         :param phi0: initial phase
@@ -132,7 +132,7 @@ class GaussianBeam:
 
         return I
 
-    def Propagate(self, z1=0.05, z2=1.05, dz=1, r2=10, dr=0.1, select=False): # Raidus r in centimeters
+    def Propagate(self, z1=0.05, z2=1.05, dz=1, r2=10, dr=0.1, select=False):
         """
         Propagate the beam in free space. Calculates the fundamental parameters
          of the beam for a certain distance and store it in a vector.
