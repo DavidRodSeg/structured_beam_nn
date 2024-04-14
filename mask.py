@@ -3,7 +3,6 @@ Methods for creating and applying a mask to a an array representing a structured
 """
 
 
-
 # Import libraries
 import numpy as np
 
@@ -101,7 +100,7 @@ class Mask:
     
     def get(self):
         """
-        Allow accesing to the mask's array.
+        Allow acces to the mask's array.
         :return: mask's array
         """
         return self.mask

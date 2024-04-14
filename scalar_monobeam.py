@@ -24,7 +24,7 @@ class GaussianBeam:
         Define a coherent monocromatic beam with a gaussian cross-sectional profile
          and a linear polarization.
         :param W0: beam waist radius at the origin z=0 (mm)
-        :param f: frequency of the monocromatic beam (THz)
+        :param f: frequency of the monocromatic beam (Hz)
         :param E0: intensity at the origin (N/C)
         :param phi0: initial phase
         :param alpha: the angle the polarization forms with the X-axis
@@ -40,7 +40,6 @@ class GaussianBeam:
         self.FWHM = self.w0 * np.sqrt( 2*np.log(2) )
         self.z0 = np.pi*self.w0**2 / self.wave_length
         self.k = 2*np.pi/self.wave_length
-        self.M = 1 + 0j
 
     def getWaist(self, z):
         """
@@ -102,7 +101,7 @@ class GaussianBeam:
 
         return phi
 
-    def getFieldVector(self, z, r): # REVISAR SI ESTÁ BIEN LA SALIDA EN CUANTO A SISTEMA DE COORDENADAS
+    def getFieldVector(self, z, r):
         """
         Gives the field vector (in the cross-section plane) at the position
          (r, z) in cylindrical coordinates. 
@@ -183,7 +182,7 @@ class GaussianBeam:
                         Mat[i, j, k] = Eijk
 
         else:
-            print("Error: Not a valid selection")
+            raise TypeError("Select must be boolean")
   
         return Mat
     
@@ -196,16 +195,6 @@ class GaussianBeam:
         self.alpha = alpha
 
         return self
-
-    def __Mask(self, M=None):
-        """
-        Apply a complex mask to modulate the beam amplitude and phase.
-        :param M: mask function that modulate the beam
-        :return: GaussianBeam object for chaining
-        """
-        M = self.M if M==None else M
-
-        return M
     
     def Module(self, array):
         """

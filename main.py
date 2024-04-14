@@ -21,7 +21,7 @@ dataset = np.empty((times, diff_size+mask_size ), dtype=np.float32)
 
 for t in tqdm(range(times)):
     #-----------------------CREATION OF THE BEAM--------------------------
-    beam = LGBeam(10, f=600*10e6, E0=10, p=1, l=1)
+    beam = LGBeam(10, f=600*10e6, E0=10, p=0, l=0)
     # print("Creating field/intensity matrices... ")
     t0 = time.time()
     MatE = beam.Propagate(z2=10.05, dz=10,r2=64, dr = 1, select=True)
@@ -60,7 +60,7 @@ for t in tqdm(range(times)):
     #--------------------------APPLY THE MASK-----------------------------
     # print("Applying the mask...")
     MatE = np.squeeze(MatE)
-    mask = Mask(MatE.shape[0], MatE.shape[1]).Identity()
+    mask = Mask(MatE.shape[0], MatE.shape[1]).setRectangle(a=20,b=10)
     mask_arr = mask.get() # Necessary for the creation of the dataset
     mask_arr_int = beam.Module(mask_arr)
     product = mask.Apply(MatE)
