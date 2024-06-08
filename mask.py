@@ -51,7 +51,7 @@ class Mask:
         :return: array of the beam with the mask applied
         """
         steps = int(( self.xdim - N*size ) / ( N+1 ))
-        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64) # Zero mask = wall (the light doesn't goes through the mask)
+        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.float32) # Zero mask = wall (the light doesn't goes through the mask)
         for j in range(steps+size, self.xdim, steps+size): # REVISAR EL CÓMO CENTRAR LA RENDIJA
             for i in range(size):
                 self.mask[:,j+i-size] = 1
@@ -65,7 +65,7 @@ class Mask:
         :param b: vertical side of the rectangle (in pixel size)
         :return: array of the beam with the mask applied
         """
-        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64)
+        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.float32)
         x0 = int((self.xdim - a)/2)
         y0 = int((self.ydim - b)/2)
         for i in range(x0, a + x0, 1):
@@ -80,7 +80,7 @@ class Mask:
         :param r: radius of the aperture (in pixel size)
         :return: array of the beam with the mask applied
         """
-        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.complex64)
+        self.mask = np.zeros((self.xdim, self.ydim), dtype=np.float32)
         for i in range(self.xdim):
             for j in range(self.ydim):
                 if int(np.sqrt(( i-self.xdim/2 )**2 + ( j-self.ydim/2 )**2)) <= r: # The origin is established in the coordinate (xdim/2, ydim/2) which means is centered
