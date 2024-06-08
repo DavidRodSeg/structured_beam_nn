@@ -22,10 +22,8 @@ slits_scaler = load(open(f"{current_dir}/models_and_scalers/scaler_slits.pkl", "
 
 
 # Reading the example
-times = 500
 diff_dim = 256
 diff_size = diff_dim**2
-ltrain = int( 0.9*( times ) )
 
 current_dir = os.getcwd()
 data_dir = f"{current_dir}/data_sets/modeltesting_intensity_rectangle_pl_2.csv"
