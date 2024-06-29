@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 c = 3*10**8
 
@@ -9,6 +10,8 @@ class Fraunhofer:
          Transformation for a given samples data and the diffraction of a given beam using
          Fraunhofer diffraction.
         :param samples: matrix of the samples that will be transformed
+        :param f: frequency of the beam in Hz
+        :param z: traveled distance by the beam in m
         """
         self.samples = samples
         self.xdim = samples.shape[0]
@@ -18,10 +21,10 @@ class Fraunhofer:
         self.N = int(self.xdim/2)
         self.wavelength = c / self.f
 
-        self.dx = 0.001
-        self.dy = 0.001
-        self.dx2 = 1
-        self.dy2 = 1
+        self.dx2 = 3.45*1e-6 # 0.001
+        self.dy2 = 3.45*1e-6 # 0.001
+        self.dx = 35.5*1e-6 # 1
+        self.dy = 35.5*1e-6 # 1
         self.A = ( self.xdim*self.dx*self.dx2 )/ ( self.wavelength*self.z )
         self.amp = 1
 
@@ -72,13 +75,13 @@ class Fraunhofer:
         xy = np.asarray(xy, dtype=np.complex64)
 
         for i in range(xy.shape[0]):
-            y[i,:] = self.FFT_1D(xy[i,:])
+            y[i,:] = self.__DFT_1D(xy[i,:])
         for j in range(self.amp*xy.shape[1]):
-            fft[:,j] = self.FFT_1D(y[:,j])
+            fft[:,j] = self.__DFT_1D(y[:,j])
         
         return fft
        
-    def diffraction(self):
+    def diffraction(self, padding=False):
         """
         Propagates the initial beam using the Fraunhofer diffraction equation
         :return: array of xdim x ydim dimensions for the propagted beam
@@ -86,5 +89,22 @@ class Fraunhofer:
         k = 2*np.pi/self.wavelength
         A = np.exp( 1j*k*self.z )/( 1j*self.wavelength*self.z )
 
-        return A*self.FFT_2D(self.samples)*self.dx2*self.dy2
-        return A*np.fft.fftshift(np.fft.fft2(self.samples))*self.dx2*self.dy2
+        # dx_screen = self.z*self.wavelength/((2*self.N)*self.dx)
+        # print(dx_screen)
+
+        if padding == False:
+            # return A*self.FFT_2D(self.samples)*self.dx2*self.dy2
+            return A*np.fft.fftshift(np.fft.fft2(self.samples))*self.dx2*self.dy2
+        else:
+            New_N = int((( self.z*self.wavelength ) / ( self.dx2 )) / self.dx)
+            # New_dx2 = ( self.z*self.wavelength ) / ( 2*self.dx*New_N )
+            # print(New_dx2)
+            padding = ((New_N - self.samples.shape[0]) // 2, (New_N - self.samples.shape[1]) // 2)
+
+            padded_image = np.pad(self.samples, ((padding[0], New_N - self.samples.shape[0] - padding[0]),
+                              (padding[1], New_N - self.samples.shape[1] - padding[1])),
+                      mode='constant', constant_values=0)
+            
+            fft =  A*np.fft.fftshift(np.fft.fft2(padded_image))*self.dx2*self.dy2
+
+            return fft[padding[0]:-padding[0], padding[1]:-padding[1]]

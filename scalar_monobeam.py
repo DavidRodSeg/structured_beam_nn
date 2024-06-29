@@ -97,7 +97,7 @@ class GaussianBeam:
         """
         R = self.getRadius(z)
         gphi = self.getGouyPhase(z)
-        phi = -self.k*z - np.pi*r**2 / ( self.wave_length*R ) - gphi
+        phi = self.k*z + np.pi*r**2 / ( self.wave_length*R ) - gphi
 
         return phi
 
@@ -147,7 +147,7 @@ class GaussianBeam:
          (z_steps, 2*r_steps, 2*r_steps) respectively
         """
         # Number of steps for the for loops
-        z_steps = int(( z2-z1 ) / dz)
+        z_steps = int(( z2-z1 ) / dz) + 1
         r_steps = int( r2 / dr)
         c_steps = 2*r_steps #Cartesian steps: twice the steps of the radius
 
@@ -198,17 +198,23 @@ class GaussianBeam:
     
     def Module(self, array):
         """
-        Transform the field's array in an array of the intensity vales.
-        :param array: field's array
+        Transform the field's array into an array of the intensity values.
+        :param array: field's array (complex numbers)
         :return: array of intensities
         """
-        intensity = np.empty((array.shape[0], array.shape[1]), dtype=np.float32)
-        for i in range(array.shape[0]):
-            for j in range(array.shape[1]):
-                intensity[i,j] = self.I0_norm * abs( array[i,j] )**2
+        intensity = self.I0_norm * np.abs(array)**2
         
         return intensity
+    
+    def phase_array(self, array):
+        """
+        Transform the field's array into an array of the phase values.
+        :param array: field's array (complex numbers)
+        :return: array of phases
+        """
+        phases = np.arctan2(np.imag(array), np.real(array))
 
+        return phases
 
 
 DEFAULT_M = 0
@@ -263,7 +269,7 @@ class HGBeam(GaussianBeam):
         """
         R = self.getRadius(z)
         gphi = self.getGouyPhase(z)
-        phi = -self.k*z - self.k*( x**2+y**2 ) / ( 2*R ) - gphi
+        phi = self.k*z + self.k*( x**2+y**2 ) / ( 2*R ) - gphi
 
         return phi
     
@@ -314,7 +320,7 @@ class HGBeam(GaussianBeam):
          (z_steps, 2*r_steps, 2*r_steps) respectively
         """
         # Number of steps for the for loops
-        z_steps = int(( z2-z1 ) / dz)
+        z_steps = int(( z2-z1 ) / dz) + 1
         r_steps = int( r2 / dr)
         c_steps = 2*r_steps #Cartesian steps: twice the steps of the radius
 
@@ -328,7 +334,6 @@ class HGBeam(GaussianBeam):
                         z = i * dz + z1
                         x = j * dr - r2
                         y = k * dr - r2
-                        r = np.sqrt(x**2 + y**2)
                         Iijk = self.getIntensity(x, y, z)
                         Mat[i, j, k] = Iijk
 
@@ -342,9 +347,8 @@ class HGBeam(GaussianBeam):
                 for j in range(c_steps):
                     for k in range(c_steps):
                         z = i * dz + z1
-                        x = j * dr - r2
-                        y = k * dr - r2
-                        r = np.sqrt(x**2 + y**2)
+                        y = j * dr - r2
+                        x = k * dr - r2
                         Eijk = self.getFieldVector(x, y, z)
                         Mat[i, j, k] = Eijk
 
@@ -433,7 +437,7 @@ class LGBeam(GaussianBeam):
          (z_steps, 2*r_steps, 2*r_steps) respectively
         """
         # Number of steps for the for loops
-        z_steps = int(( z2-z1 ) / dz)
+        z_steps = int(( z2-z1 ) / dz) + 1
         r_steps = int( r2 / dr)
         c_steps = 2*r_steps #Cartesian steps: twice the steps of the radius
 
@@ -461,13 +465,17 @@ class LGBeam(GaussianBeam):
                 for j in range(c_steps):
                     for k in range(c_steps):
                         z = i * dz + z1
-                        x = j * dr - r2
-                        y = k * dr - r2
+                        y = j * dr - r2
+                        x = k * dr - r2
                         r = np.sqrt(x**2 + y**2)
                         if r == 0:
                             theta = 0 # Impose 0 to avoid problems in the IND 0/0 at the origin (r=0). This sentence has no relevance as the amplitude is 0 at r=0.
                         else:
-                            theta = np.arcsin( y/r )
+                            if y >= 0:
+                                theta = np.arccos( x/r ) # The image of the arccosine is [0, pi], but we need it to be [0, 2pi]
+                            else:
+                                theta = np.pi + np.arccos( -x/r )
+
 
                         Eijk = self.getFieldVector(z, r, theta)
                         Mat[i, j, k] = Eijk
@@ -500,7 +508,7 @@ class BGBeam(GaussianBeam):
         self.order = order
     
     def getFieldAmplitude(self, z, r):
-        A = super().getFieldAmplitude(z, r) * abs( jv(self.order, self.beta*r/( 1+1j*z/self.z0 )) ) * np.exp( -self.beta**2*(z/2*self.k) / ( 1+z/self.z0 ))
+        A = super().getFieldAmplitude(z, r) * abs( jv(self.order, self.beta*r/( 1+1j*z/self.z0 )) ) * np.exp( -self.beta**2*(z/(2*self.k)) / ( 1+z/self.z0 ))
 
         return A
     
