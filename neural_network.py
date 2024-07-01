@@ -3,58 +3,151 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 import os
+from pickle import dump
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
+# tf.config.set_visible_devices([], 'GPU')
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
-times = 10
-mask_dim = 128
-diff_dim = mask_dim
-mask_size = mask_dim**2
+def calculate_mse(y_true, y_pred):
+    mse = np.mean((y_true - y_pred) ** 2)
+
+    return mse
+
+def load_csv_in_chunks(file_path, chunksize=1000, sep=";", header=None, index_col=False):
+    chunk_list = []
+    for chunk in pd.read_csv(file_path, sep=sep, header=header, index_col=index_col, chunksize=chunksize):
+        chunk_list.append(chunk)
+    return pd.concat(chunk_list, axis=0)
+
+times = 1500
+diff_dim = 256
 diff_size = diff_dim**2
-ltrain = int( 0.7*( times*mask_dim ) )
+ltrain = int( 0.8*( times ) )
 
-# Loading the dataset
+# ------------------- Loading the dataset -------------------
 print("Loading the dataset...")
-current_dir = os.getcwd()
-relative_dir = f"{times}_diffraction_intensity.csv"
-data_dir = os.path.join(current_dir, relative_dir)
-df = pd.read_csv(data_dir, sep=";", header=None, index_col=False)
+rectangular_parameters_path = "rectangular_images.csv"
+circular_parameters_path = "circular_images.csv"
+slits_parameters_path = "slit_images.csv"
+
+df1 = load_csv_in_chunks(rectangular_parameters_path)
+df2 = load_csv_in_chunks(circular_parameters_path)
+df3 = load_csv_in_chunks(slits_parameters_path)
+
+df = pd.concat([df1, df2, df3], ignore_index=True)
+print(df.shape)
+
 print("Done.")
 
-# X-y split (and converting the dataframe to numpy arrays)
-X_train, y_train, X_test, y_test = df.values[:ltrain,:diff_dim], df.values[:ltrain,diff_dim:], df.values[ltrain:,:diff_dim], df.values[ltrain:,diff_dim:]
+# ------------------- X-y split (and converting the dataframe to numpy arrays) -------------------
+X, y = df.values[:,:diff_size], df.values[:,diff_size:]
+print(X.shape, y.shape)
 
-# Image preprocessing
+# ------------------- Image preprocessing -------------------
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+X_test, X_val, y_test, y_val = train_test_split(X, y, test_size=0.5, random_state=42)
+
 scaler = MinMaxScaler()
-X_train = scaler.fit_transform(X_train).reshape(-1, diff_dim, diff_dim, 1)
-y_train = y_train.reshape(-1, diff_dim, diff_dim, 1)
-X_test = scaler.transform(X_test).reshape(-1, diff_dim, diff_dim, 1)
-y_test = y_test.reshape(-1, diff_dim, diff_dim, 1)
+scalery = MinMaxScaler()
+X_train = scaler.fit_transform(np.transpose(X_train)).transpose().reshape(-1, diff_dim, diff_dim, 1)
+X_val = scaler.fit_transform(np.transpose(X_val)).transpose().reshape(-1, diff_dim, diff_dim, 1)
+X_test = scaler.fit_transform(np.transpose(X_test)).transpose().reshape(-1, diff_dim, diff_dim, 1)
+y_train = scaler.fit_transform(np.transpose(y_train)).transpose().reshape(-1, diff_dim, diff_dim, 1)
+y_val = scaler.fit_transform(np.transpose(y_val)).transpose().reshape(-1, diff_dim, diff_dim, 1)
+y_test = scaler.fit_transform(np.transpose(y_test)).transpose().reshape(-1, diff_dim, diff_dim, 1)
+# scalery.fit(y_train)
+# y_train = scalery.transform(y_train)
+# y_val = scalery.transform(y_val)
 
-# Defining the model
+
+# ------------------- Defining the model -------------------
+# # Approximation model
+# model = tf.keras.Sequential([
+#     tf.keras.layers.Input(shape=(diff_dim, diff_dim, 1)),
+
+#     # First convolutional block
+#     tf.keras.layers.Conv2D(filters=32, kernel_size=4, activation="relu"),
+#     tf.keras.layers.AveragePooling2D((2,2)),
+
+#     # Second convolutional block
+#     tf.keras.layers.Conv2D(filters=16, kernel_size=4, activation="relu"),
+#     tf.keras.layers.AveragePooling2D((2,2)),
+
+#     # Third convolutional block
+#     tf.keras.layers.Conv2D(filters=8, kernel_size=4, activation="relu"),
+
+#     tf.keras.layers.Flatten(),
+
+#     # Fully connected layers
+#     tf.keras.layers.Dense(128, activation="relu"),
+#     tf.keras.layers.Dense(3)
+# ])
+
+# # Classification model
+# model = tf.keras.Sequential([
+#     tf.keras.layers.Input(shape=(diff_dim, diff_dim, 1)),
+
+#     # First convolutional block
+#     tf.keras.layers.Conv2D(filters=32, kernel_size=4, activation="relu"),
+#     tf.keras.layers.AveragePooling2D((2,2)),
+
+#     # Second convolutional block
+#     tf.keras.layers.Conv2D(filters=16, kernel_size=4, activation="relu"),
+#     tf.keras.layers.AveragePooling2D((2,2)),
+
+#     # Third convolutional block
+#     tf.keras.layers.Conv2D(filters=8, kernel_size=4, activation="relu"),
+
+#     tf.keras.layers.Flatten(),
+
+#     # Fully connected layers
+#     tf.keras.layers.Dense(128, activation="relu"),
+#     tf.keras.layers.Dense(3, activation="softmax")
+# ])
+
+# Image approximation model
 model = tf.keras.Sequential([
     tf.keras.layers.Input(shape=(diff_dim, diff_dim, 1)),
-    tf.keras.layers.Conv2D(filters=128, kernel_size=4, activation="relu"),
-    tf.keras.layers.AveragePooling2D((2,2)),
-    tf.keras.layers.Conv2D(filters=64, kernel_size=4, activation="relu"),
-    tf.keras.layers.AveragePooling2D((2,2)),
+
+    # First convolutional block
     tf.keras.layers.Conv2D(filters=32, kernel_size=4, activation="relu"),
+    tf.keras.layers.AveragePooling2D((2,2)),
+
+    # Second convolutional block
+    tf.keras.layers.Conv2D(filters=16, kernel_size=4, activation="relu"),
+    tf.keras.layers.AveragePooling2D((2,2)),
+
+    # Third convolutional block
+    tf.keras.layers.Conv2D(filters=8, kernel_size=4, activation="relu"),
+
     tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(512, activation="relu"),
-    tf.keras.layers.Dense(256, activation="relu"),
-    tf.keras.layers.Dense(mask_dim**2),
-    tf.keras.layers.Reshape((mask_dim, mask_dim, 1))
+
+    # Fully connected layers
+    tf.keras.layers.Dense(128, activation="relu"),
+    tf.keras.layers.Dense(diff_size, activation="sigmoid"), # The sigmoid function is necessary for obtaining an amplitude mask with only two values
+    tf.keras.layers.Reshape((diff_dim, diff_dim, 1))
 ])
-model.compile(optimizer="adam", loss="mse", metrics=["accuracy"])
+
+
+optimizer = tf.keras.optimizers.Adam(learning_rate = 1e-4)
+model.compile(optimizer=optimizer, loss="mse", metrics=["accuracy"])
 print(model.summary())
 
 # Hyperparameters
-n_epochs = 10
-batch_size = 64
+n_epochs = 300
+batch_size = 8
 
 # Training the model
-history = model.fit(X_train, y_train, batch_size=batch_size, epochs=n_epochs, validation_data=(X_test, y_test))
+history = model.fit(X_train, y_train, batch_size=batch_size, epochs=n_epochs, validation_data=(X_val, y_val), shuffle=True)
+
+# Saving the model and the scalers
+data_dir = "all_images.keras"
+model.save(data_dir)
+
+dump(scalery, open("all_images.pkl","wb"))
 
 # Evaluating the model
 def plot_losses():
@@ -80,19 +173,29 @@ def plot_accuracy():
 plot_losses()
 plot_accuracy()
 
-# Making a prediction
-current_dir = os.getcwd()
-relative_dir = "modeltesting_intensity.csv"
-data_dir = os.path.join(current_dir, relative_dir)
-X_try = pd.read_csv(data_dir, sep=";", header=None).values[:, :mask_dim]
-X_try = scaler.transform(X_try).reshape(-1, mask_dim, mask_dim, 1)
+y_pred = model.predict(X_test)
 
-y_pred = model.predict(X_try)
-y_pred = y_pred.reshape(mask_dim, mask_dim)
+# index = 0
+# while index < 15:
 
-# Checking out the results
-plt.imshow(y_pred, cmap="grey").set_clim(vmin=0, vmax=1e-5)
-plt.xlabel('X-axis label')
-plt.ylabel('Y-axis label')
-plt.colorbar()
-plt.show()
+#     print(f"True values: {y_test[index]}")
+#     print(f"Predicted values: {scalery.inverse_transform(y_pred[index].reshape(1,-1))}")
+
+#     index = index + 1
+
+# print(calculate_mse(scalery.transform(y_test), y_pred))
+
+index = 0
+while index < 15:
+
+    plt.imshow(y_test[index], cmap='viridis', interpolation='nearest')
+    plt.colorbar()
+    plt.savefig(f'{index}_predicted.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    plt.imshow(y_pred[index], cmap='viridis', interpolation='nearest')
+    plt.colorbar()
+    plt.savefig(f'{index}_expected.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    index = index + 1
