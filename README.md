@@ -1,127 +1,148 @@
-# MRISegmentation
-## Objective
-
-The aim of the project was to achieved binary segmentation of brain tumoral MRI (magnetic resonance imaging) images. For that purpose two models were used: pretrained DeepLabV3 and AGResUNet. Both use a _encoder-decoder_ arquitecture
-and are fully convolutional networks. The quality of the models were measured using _dice_, _precision_, _recall_, _accuracy_ and _IoU_, typically use in this kind of problems.
-
-## Data set analysis
-
-The data set used consisted in a set of two-dimensional images of brain regions extracted through magnetic resonance imaging. We had several types of images or _sequences_ based on the parameters configured during the acquisition of these.
-
-* **T1-weighted (T1)**: distinguishes between white and gray matter. Helps detect the presence of hemorrhages.
-* **T2-weighted (T2)**: allows detection of regions with fluid, aiding in the detection of edemas and inflamed tissues.
-* **T1-weighted with contrast (T1ce)**: highlights areas with a broken blood-brain barrier. Useful for identifying active tumor regions.
-* **Fluid Attenuated Inversion Recovery (FLAIR)**: used to visualize areas with pathological changes such as edemas and specific areas of the tumor.
-* **Binary segmentation**: labeling of pixels as tumor (1) or non-tumor (0) by experts.
-
-![Alt Text](https://drive.google.com/uc?id=1yVNaf4qAEJFECK6N3N_YlseUHtJ22QDr)
-<center>
-<i>Figure 1: Example of the train set. (a) T1-weighted sequence, (b) T2-weighted sequence,
-  (c) T1-weighted with contrast sequence, (d) FLAIR sequence, (e) Binary segmentation.</i>
-</center>
-
-The data set is divided in training and validation sets (994 images) y testing set (257 images). The resolution is 240 x 240 pixels..
-
-## Models
-### DeepLabV3
-The DeepLab models are a type of deep learning architecture dedicated to semantic image segmentation, that is, assigning a class to each pixel of an image. 
-They are characterized by the use of dilated convolutions, which allow the model to increase its field of view without increasing the number of parameters by 
-introducing gaps between the pixels of the convolution mask. Versions v2 and v3 of this model also include what is known as Atrous Spatial Pyramid Pooling (ASPP), 
-which consists of applying different dilated convolutions with varying dilation rates, enabling the capture of information at different scales. It also includes what
-is usually known as _encoder-decoder_ structure which consists in the union of two structures: an encoder, which encodes the image by extracting the most important features; and a decoder,
-which allows obtaining the original image dimensions but from the features extracted by the encoder.
-
-### AGResUNet
-UNet models are a series of fully convolutional architectures with an encoder-decoder structure developed for biomedical image segmentation. 
-They are characterized for using information from the encoder in the decoder through what are called _skip connections_. The encoder-decoder structure, 
-along with these skip connections, gives the model its U-shape, from which it gets its name.
-
-The AGResUNet model adds two additional elements to the structure:
-
-* **Residual connections**: Typical of the ResNet model. The convolutional blocks of the UNet are replaced with residual blocks, which include information from the input image at the output of the block.
-* **Attention gates**: Typical of the attention mechanisms of transformers. Attention gates are added during the UpSampling process of the decoder, allowing the network to focus on important regions of the MRI images.
-
-![Alt Text](https://drive.google.com/uc?id=1oPHG1DFfsOFgbOAAYVM7E_h8NKoFYEw7)
-<center>
-<i>Figure 2: AGResUNet model. From: Attention Gate ResU-Net for Automatic
-MRI Brain Tumor Segmentation. </i>
-</center>
-
-## How to use it
-### Dependencies
-
-The main libraries are:
-* Pytorch = 2.2.2
-* Numpy = 1.26.2
-
-Additional dependencies are listed in the file  _requirement.txt_
-
-### Training
-Run _training.py_ to start training the models and visualizing the results.
-
-### Results
-For 20 epochs the metrics obtained for both models are the following:
-
-| Models      | Accuracy | Precision | Recall | Dice  | IoU   |
-|-------------|----------|-----------|--------|-------|-------|
-| DeepLabV3   | 0.991    | 0.864     | 0.914  | 0.872 | 0.799 |
-| AGResUNet   | 0.995    | 0.937     | 0.937  | 0.916 | 0.881 |
-
-The results are specially satisfactory with AGResUNet. This is also shown in the following prediction:
-![Alt Text](https://drive.google.com/uc?id=1ov7QdWR2qVUy_JWLgu5evEMnN2qrZvPL)
-<center>
-<i>Figure 3: AGResUNet model prediction. </i>
-</center>
+# Study of Structural Light and its Diffraction using Machine Learning
+<!-- The repository contains files for the generation of different structured light beams (LG, HG, and BG) and their diffraction. These files are used to create the dataset that trains a neural network aimed at predicting certain parameters of the mask applied to the beams from the intensity patterns generated by the diffraction. It also contains files for the preprocessing of experimental images obtained in the laboratory. The code may contain errors, so use with caution.
+![Python](https://img.shields.io/badge/Python-3.10-blue)
+![NumPy](https://img.shields.io/badge/NumPy-2.2.3-orange)
+![pandas](https://img.shields.io/badge/pandas-2.2.3-lightgrey)
+![OpenCV](https://img.shields.io/badge/OpenCV-4.10.0-brightgreen.svg?logo=opencv&logoColor=white) -->
+> ⚠️ **Warning**: This repository has been archived and was created some time ago, so it may not be as optimized as it should be. Moreover, since the TFG deadline has passed, the code has not been modified. Only this *README.md* file, the *requirements.txt* file and the license have been added. Use with caution as it probably contains errors.
 
 
-## References
+## 🎯 Objective
+The goal of this project is to study optical diffraction and propagation using machine learning and computer vision techniques. Specifically, the repository consists of two main parts:
+1. **Dataset generation**, which includes scripts for generating structured light beams (LG, HG and BG) and simulating their propagation.
+2. **Neural network training and testing** for predicting certain parameters of the applied mask from the intensity patterns generated by diffraction.
 
+Additionally, the repository also contains scripts for the processing of experimental images obtained in the laboratory.The trained neural network was applied to this real data, which was collected by passing a laser beam through a spatial light modulator (SLM) and analyzing the resulting diffraction pattern on a screen placed at a certain distance.
+
+## 📚 Theoretical background
+For clarity, this section provides a brief introduction to the physics and machine learning concepts used in the project.
+### Structured light
+Structured light refers to the control of light in all its degrees of freedom. This means manipulating its polarization, phase or intensity to create light beams not commonly found in nature.
+
+A particular case of structured light are *transverse electric and magnetic* (TEM) light beams. These are solutions to the *Helmholtz equation*, a particular case of the general wave equation applicable when the *paraxial approximation* is fulfilled:
+
+$$
+\left|\frac{\partial^2 \psi}{\partial z^2}\right| \ll \left|k \cdot \frac{\partial \psi}{\partial z}\right| 
+$$
+
+Under this approximation, the equation is reduced to the *paraxial equation*:
+$$
+\frac{\partial^2 \psi}{\partial t^2} - 2i \cdot k \cdot \frac{\partial \psi}{\partial z} = 0
+$$
+
+The solutions to this equation are waves with electromagnetic fields perpendicular to the direction of propagation. In this project, we use some of them, including:
+* **Gaussian beam**: Characterized for their gaussian intensity distribution profile.
+* **Laguerre-Gauss (LG) beams**: They can be described as gaussian beams modulated by *Laguerre asssociated polynomials*, $L^p_l(x)$.
+* **Hermite-Gauss (HG) beams**: Solutions to the paraxial equation in cartesian coordinates, different to the polar coordinates used in the other beams. Modulated by Hermite polynomials, $H_m$.
+* **Bessel-Gauss (BG) beams**: Similar to gaussian beams in the sense that they also have axial symmetry.
+
+### Spatial Light Modulator
+Structured light was applied through a mask in both theoretical and experimental setups, as the aim of the work was to study the viability of using machine learning for extracting properties of the applied mask.
+
+The spatial light modulator, commonly referred as SLM, was simulated by applying a complex array to the structured light beams. This was done using the Hadamart product (also called element-wise multiplication).
+
+### Diffraction and propagation. Fraunhoffer diffraction
+Diffraction is a phenomenon where the wavefront of a light beam is modified as a consequence of propagation and the superpostion principle. Typically, diffraction is studied using the *Huygens-Fresnel Principle*. According to this principle, each point on the wavefront generates a secondary wave, which can be considered a perturbation of the original wave and produces a spherical wave with the same characteristics. These secondary waves generate other tertiary waves, and so on. Mathematically, this is expressed as:
+$$
+U(P) = \frac{A e^{ik r_0}}{r_0} \cdot \iint_{w} \frac{e^{ik s}}{s} \cdot K(\chi) \, d\sigma
+$$
+With this equation, one can explain propagation and diffraction. The special case used in this project is *Fraunhoffer diffraction*, which describes the propagation to infinity of a light beam that has been modificated or diffracted by a mask. The expression of Fraunhoffer diffraction is:
+$$
+U(P) = -\frac{i \cos \delta}{\lambda} \cdot \frac{A e^{ik(r' + s')}}{r' s'} \cdot \iint_{A} U(\xi, \nu) \cdot e^{ik f(\xi, \eta)} \, d\xi \, d\eta
+$$
+where f is defined as
+$$
+f(\xi, \eta) = (l_0 - l)\xi + (m_0 - m)\eta + \frac{1}{2} \left( \frac{1}{r'} + \frac{1}{s'} \right) (\xi^2 + \eta^2)
+$$
+This approximation was chosen because of its simplicity and because its conditions are easily met in the laboratory.
+
+### Neural networks
+An *artificial neural network* (ANN) is a mathematical model inspired by the neural networks find in our brain that aims to reproduce patterns present in data. This data can take many forms, such us sounds, numerical data or images, as is in the case here. ANNs are built using small units called neurons or perceptrons, which are functions with certain weights and thresholds that produce an output based on a given input. The weights in these neurons are optimized so that the ANN can effectively detect patterns in the data.
+
+The models used in this repository are simple neural networks based on common *multilayer* and *convolutional models*. Convolutional models are particularly useful when working with images and are based on kernels, which are arrays of size $n \times m$, that move across the image extracting information and patterns. Additionally, these models can also reduce dimensionality using *pooling layers* and not just using convolutionals.
+
+## 🧪 Model
+Two models were considered depending on the output:
+* **Image output**
+```ptyhon
+model = tf.keras.Sequential([
+tf.keras.layers.Input(shape=(diff_dim, diff_dim, 1)),
+tf.keras.layers.Conv2D(filters=32, kernel_size=4, activation="relu"),
+tf.keras.layers.AveragePooling2D((2,2)),
+tf.keras.layers.Conv2D(filters=16, kernel_size=4, activation="relu"),
+tf.keras.layers.AveragePooling2D((2,2)),
+tf.keras.layers.Conv2D(filters=8, kernel_size=4, activation="relu"),
+tf.keras.layers.Flatten(),
+tf.keras.layers.Dense(128, activation="relu"),
+tf.keras.layers.Dense(mask_dim**2, activation="sigmoid"),
+tf.keras.layers.Reshape((mask_dim, mask_dim, 1))
+])
+```
+* **Parameters output**
+```ptyhon
+model = tf.keras.Sequential([
+tf.keras.layers.Input(shape=(diff_dim, diff_dim, 1)),
+tf.keras.layers.Conv2D(filters=32, kernel_size=4, activation="relu"),
+tf.keras.layers.AveragePooling2D((2,2)),
+tf.keras.layers.Conv2D(filters=16, kernel_size=4, activation="relu"),
+tf.keras.layers.AveragePooling2D((2,2)),
+tf.keras.layers.Conv2D(filters=8, kernel_size=4, activation="relu"),
+tf.keras.layers.Flatten(),
+tf.keras.layers.Dense(128, activation="relu"),
+tf.keras.layers.Dense(3)
+])
+```
+The basic structure in both cases consisted of three convolutional layers and two dense layers. The first three aim to extract information from the diffraction image, while the last two reduce dimensionality and adjust the output size.
+
+## 🛠️ How to use it
+### 📦 Dependencies
+This project uses Python 3.10.6. The main libraries are:
+* NumPy 2.1.3
+* Tensorflow 2.19.0
+* Pandas 2.2.3
+* OpenCV 4.10.0
+
+However, other libraries might be needed. They can be imported using the _requirements.txt_ file.
+
+### 📊 Dataset generation
+Training and testing images are generated using *data_set_generation.py*.
+```python
+python .\data_set_generation.py 
+```
+
+### 🏋️ Training and testing
+Training and testing are performed using neural_network.py. You can run the process with the following command:
+```python
+python .\neural_network.py
+```
+
+### 🔬 Experimental images preprocessing
+The preprocessing of experimental images, to make them suitable for comparison with the theoretical results, is performed using image_preprocessing.py.
+```python
+python .\image_preprocessing.py
+```
+For testing the models with the experimental images use *prediction.py*.
+```python
+python .\prediction.py
+```
+You may need to delete or modified some code, as the code is not command-line friendly or correctly optimized.
+
+### 📈 Results
+Some of the results are shown in the following images:
+
+## 📖 Documentation
+The full TFG documentation is available in the University of Salamanca's institutional repository, GRIAL. You can access it [here](http://hdl.handle.net/10366/164446).
+
+## 📚 References
 <div id="refs" class="references csl-bib-body hanging-indent">
 
-<div id="ref-article3" class="csl-entry">
+  <div id="ref-verdeyen1995" class="csl-entry">
+    Verdeyen, J. T. 1995. "Laser Electronics". Prentice Hall.<br><br>
+  </div>
 
-Oktay, Ozan, Jo Schlemper, Loic Folgoc, Matthew Lee, Mattias Heinrich,
-Kazunari Misawa, Kensaku Mori, et al. 2018. “Attention u-Net: Learning
-Where to Look for the Pancreas,” April.
-<https://doi.org/10.48550/arXiv.1804.03999>.
-
-</div>
-
-<div id="ref-ronneberger2015unetconvolutionalnetworksbiomedical"
-class="csl-entry">
-
-Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. 2015. “U-Net:
-Convolutional Networks for Biomedical Image Segmentation.”
-<https://arxiv.org/abs/1505.04597>.
+  <div id="ref-oshea2015" class="csl-entry">
+    O’Shea, K., and R. Nash. 2015. “An Introduction to Convolutional Neural Networks.”<br>
+    <a href="https://arxiv.org/pdf/1511.08458">https://arxiv.org/pdf/1511.08458</a>.
+  </div>
 
 </div>
-
-<div id="ref-Siddique_2021" class="csl-entry">
-
-Siddique, Nahian, Sidike Paheding, Colin P. Elkin, and Vijay
-Devabhaktuni. 2021. “U-Net and Its Variants for Medical Image
-Segmentation: A Review of Theory and Applications.” *IEEE Access* 9:
-82031–57. <https://doi.org/10.1109/access.2021.3086020>.
-
-</div>
-
-<div id="ref-article" class="csl-entry">
-
-Zhang, Jianxin, Zongkang Jiang, Jing Dong, Yaqing Hou, and Bin Liu.
-2020. “Attention Gate ResU-Net for Automatic MRI Brain Tumor
-Segmentation.” *IEEE Access* PP (March): 1–1.
-<https://doi.org/10.1109/ACCESS.2020.2983075>.
-
-</div>
-
-<div id="ref-article4" class="csl-entry">
-
-Zhang, Zhengxin, and Qingjie Liu. 2017. “Road Extraction by Deep
-Residual u-Net.” *IEEE Geoscience and Remote Sensing Letters* PP
-(November). <https://doi.org/10.1109/LGRS.2018.2802944>.
-
-</div>
-
-</div>
-
-
